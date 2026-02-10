@@ -5,120 +5,193 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        /* Добавим еще это правило, чтобы нельзя было случайно выделить текст при клике */
-        * {
-            user-select: none;
-            -webkit-user-select: none;
-            touch-action: manipulation;
-        }
-
         body {
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            text-align: center;
-            background: radial-gradient(circle, #1a1a1a 0%, #000000 100%); /* Темный градиент на фон */
-            color: white;
-            margin: 0;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            overflow: hidden;
+            background: #1a1a1a; color: white; font-family: sans-serif;
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; height: 100vh; margin: 0; overflow: hidden;
         }
-
-        #score {
-            font-size: 60px;
-            font-weight: bold;
-            margin-bottom: 20px;
-            text-shadow: 0 0 20px rgba(51, 144, 236, 0.8); /* Свечение цифр */
+        #game-container { position: relative; border: 4px solid #333; }
+        canvas { background: #000; display: block; }
+        .controls {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            gap: 10px; margin-top: 20px; width: 90%;
         }
-
-        #click-btn {
-            width: 220px;
-            height: 220px;
-            border-radius: 50%;
-            border: 8px solid rgba(255, 255, 255, 0.1);
-            /* Красивый синий градиент */
-            background: linear-gradient(145deg, #3390ec, #1c66b1);
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5), 
-                        inset 0 -8px 15px rgba(0, 0, 0, 0.2),
-                        inset 0 8px 15px rgba(255, 255, 255, 0.3);
-            cursor: pointer;
-            outline: none;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            transition: transform 0.05s ease;
-            position: relative;
+        button {
+            padding: 20px; font-size: 20px; background: #3390ec;
+            color: white; border: none; border-radius: 10px; touch-action: manipulation;
         }
-
-        /* Текст внутри круга */
-        #click-btn::after {
-            content: "TAP!";
-            font-size: 28px;
-            color: white;
-            font-weight: bold;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
-        }
-
-        /* Эффект при нажатии */
-        #click-btn:active {
-            transform: scale(0.92);
-            filter: brightness(1.1);
-        }
-
-        .save-btn {
-            margin-top: 50px;
-            padding: 15px 30px;
-            font-size: 18px;
-            font-weight: bold;
-            background: white;
-            color: black;
-            border: none;
-            border-radius: 50px;
-            box-shadow: 0 4px 15px rgba(255,255,255,0.2);
-            transition: background 0.3s;
-        }
-
-        .save-btn:active {
-            transform: translateY(2px);
-        }
-        /* ...остальные стили... */
+        .score-board { font-size: 24px; margin-bottom: 10px; }
     </style>
 </head>
 <body>
+    <div class="score-board">Счет: <span id="score">0</span></div>
+    <div id="game-container">
+        <canvas id="tetris" width="240" height="400"></canvas>
+    </div>
 
-    <div id="score">0</div>
-    <button id="click-btn">КЛИКАЙ!</button>
-    
-    <button class="save-btn" onclick="sendScore()">Отправить результат боту</button>
+    <div class="controls">
+        <button onclick="move(-1)">←</button>
+        <button onclick="rotate()">↻</button>
+        <button onclick="move(1)">→</button>
+        <div style="grid-column: 2">
+            <button onclick="drop()" style="width: 100%; background: #e74c3c;">↓</button>
+        </div>
+    </div>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        let count = 0;
-        const scoreDisplay = document.getElementById('score');
-        const btn = document.getElementById('click-btn');
+        const canvas = document.getElementById('tetris');
+        const context = canvas.getContext('2d');
+        context.scale(20, 20);
 
-        // Логика клика
-        btn.addEventListener('click', () => {
-            count++;
-            scoreDisplay.innerText = count;
-            
-            // Легкая вибрация при клике (работает на смартфонах)
-            if (tg.HapticFeedback) {
-                tg.HapticFeedback.impactOccurred('light');
+        function arenaSweep() {
+            let rowCount = 1;
+            outer: for (let y = arena.length - 1; y > 0; --y) {
+                for (let x = 0; x < arena[y].length; ++x) {
+                    if (arena[y][x] === 0) continue outer;
+                }
+                const row = arena.splice(y, 1)[0].fill(0);
+                arena.unshift(row);
+                ++y;
+                player.score += rowCount * 10;
+                rowCount *= 2;
             }
-        });
-
-        // Функция отправки данных обратно в бот
-        function sendScore() {
-            const data = {
-                score: count
-            };
-            tg.sendData(JSON.stringify(data)); // Отправляем JSON строку
+            updateScore();
         }
+
+        function collide(arena, player) {
+            const [m, o] = [player.matrix, player.pos];
+            for (let y = 0; y < m.length; ++y) {
+                for (let x = 0; x < m[y].length; ++x) {
+                    if (m[y][x] !== 0 && (arena[y + o.y] && arena[y + o.y][x + o.x]) !== 0) return true;
+                }
+            }
+            return false;
+        }
+
+        function createMatrix(w, h) {
+            const matrix = [];
+            while (h--) matrix.push(new Array(w).fill(0));
+            return matrix;
+        }
+
+        function createPiece(type) {
+            if (type === 'T') return [[0, 0, 0], [1, 1, 1], [0, 1, 0]];
+            else if (type === 'O') return [[2, 2], [2, 2]];
+            else if (type === 'L') return [[0, 3, 0], [0, 3, 0], [0, 3, 3]];
+            else if (type === 'J') return [[0, 4, 0], [0, 4, 0], [4, 4, 0]];
+            else if (type === 'I') return [[0, 5, 0, 0], [0, 5, 0, 0], [0, 5, 0, 0], [0, 5, 0, 0]];
+            else if (type === 'S') return [[0, 6, 6], [6, 6, 0], [0, 0, 0]];
+            else if (type === 'Z') return [[7, 7, 0], [0, 7, 7], [0, 0, 0]];
+        }
+
+        function draw() {
+            context.fillStyle = '#000';
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            drawMatrix(arena, {x: 0, y: 0});
+            drawMatrix(player.matrix, player.pos);
+        }
+
+        function drawMatrix(matrix, offset) {
+            matrix.forEach((row, y) => {
+                row.forEach((value, x) => {
+                    if (value !== 0) {
+                        context.fillStyle = ['#000','#3390ec','#f1c40f','#e67e22','#2ecc71','#9b59b6','#e74c3c','#34495e'][value];
+                        context.fillRect(x + offset.x, y + offset.y, 1, 1);
+                    }
+                });
+            });
+        }
+
+        function merge(arena, player) {
+            player.matrix.forEach((row, y) => {
+                row.forEach((value, x) => {
+                    if (value !== 0) arena[y + player.pos.y][x + player.pos.x] = value;
+                });
+            });
+        }
+
+        function rotateMatrix(matrix) {
+            for (let y = 0; y < matrix.length; ++y) {
+                for (let x = 0; x < y; ++x) {
+                    [matrix[x][y], matrix[y][x]] = [matrix[y][x], matrix[x][y]];
+                }
+            }
+            matrix.forEach(row => row.reverse());
+        }
+
+        function playerDrop() {
+            player.pos.y++;
+            if (collide(arena, player)) {
+                player.pos.y--;
+                merge(arena, player);
+                playerReset();
+                arenaSweep();
+            }
+            dropCounter = 0;
+        }
+
+        function move(dir) {
+            player.pos.x += dir;
+            if (collide(arena, player)) player.pos.x -= dir;
+        }
+
+        function rotate() {
+            const pos = player.pos.x;
+            let offset = 1;
+            rotateMatrix(player.matrix);
+            while (collide(arena, player)) {
+                player.pos.x += offset;
+                offset = -(offset + (offset > 0 ? 1 : -1));
+                if (offset > player.matrix[0].length) {
+                    rotateMatrix(player.matrix);
+                    player.pos.x = pos;
+                    return;
+                }
+            }
+        }
+
+        function playerReset() {
+            const pieces = 'ILJOTSZ';
+            player.matrix = createPiece(pieces[pieces.length * Math.random() | 0]);
+            player.pos.y = 0;
+            player.pos.x = (arena[0].length / 2 | 0) - (player.matrix[0].length / 2 | 0);
+            if (collide(arena, player)) {
+                arena.forEach(row => row.fill(0));
+                // Если проиграли, отправляем счет боту
+                tg.sendData(JSON.stringify({score: player.score}));
+                player.score = 0;
+                updateScore();
+            }
+        }
+
+        const arena = createMatrix(12, 20);
+        const player = { pos: {x: 0, y: 0}, matrix: null, score: 0 };
+
+        function updateScore() { document.getElementById('score').innerText = player.score; }
+
+        let dropCounter = 0;
+        let dropInterval = 1000;
+        let lastTime = 0;
+        function update(time = 0) {
+            const deltaTime = time - lastTime;
+            lastTime = time;
+            dropCounter += deltaTime;
+            if (dropCounter > dropInterval) playerDrop();
+            draw();
+            requestAnimationFrame(update);
+        }
+
+        playerReset();
+        updateScore();
+        update();
+
+        // Кнопки управления для функций в HTML
+        window.move = move;
+        window.rotate = rotate;
+        window.drop = playerDrop;
     </script>
 </body>
 </html>
