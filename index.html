@@ -9,21 +9,79 @@
         * {
             user-select: none;
             -webkit-user-select: none;
-            touch-action: manipulation; /* Помогает убрать задержку клика и лишние жесты */
+            touch-action: manipulation;
         }
-        
+
         body {
-            /* Твои старые стили... */
-            font-family: 'Arial', sans-serif;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             text-align: center;
-            background-color: var(--tg-theme-bg-color, #fff);
-            color: var(--tg-theme-text-color, #000);
+            background: radial-gradient(circle, #1a1a1a 0%, #000000 100%); /* Темный градиент на фон */
+            color: white;
             margin: 0;
             display: flex;
             flex-direction: column;
             justify-content: center;
+            align-items: center;
             height: 100vh;
-            overflow: hidden; /* Запрещаем прокрутку */
+            overflow: hidden;
+        }
+
+        #score {
+            font-size: 60px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px rgba(51, 144, 236, 0.8); /* Свечение цифр */
+        }
+
+        #click-btn {
+            width: 220px;
+            height: 220px;
+            border-radius: 50%;
+            border: 8px solid rgba(255, 255, 255, 0.1);
+            /* Красивый синий градиент */
+            background: linear-gradient(145deg, #3390ec, #1c66b1);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5), 
+                        inset 0 -8px 15px rgba(0, 0, 0, 0.2),
+                        inset 0 8px 15px rgba(255, 255, 255, 0.3);
+            cursor: pointer;
+            outline: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: transform 0.05s ease;
+            position: relative;
+        }
+
+        /* Текст внутри круга */
+        #click-btn::after {
+            content: "TAP!";
+            font-size: 28px;
+            color: white;
+            font-weight: bold;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        /* Эффект при нажатии */
+        #click-btn:active {
+            transform: scale(0.92);
+            filter: brightness(1.1);
+        }
+
+        .save-btn {
+            margin-top: 50px;
+            padding: 15px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            background: white;
+            color: black;
+            border: none;
+            border-radius: 50px;
+            box-shadow: 0 4px 15px rgba(255,255,255,0.2);
+            transition: background 0.3s;
+        }
+
+        .save-btn:active {
+            transform: translateY(2px);
         }
         /* ...остальные стили... */
     </style>
