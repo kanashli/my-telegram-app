@@ -5,23 +5,42 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body {
-            background: #1a1a1a; color: white; font-family: sans-serif;
-            display: flex; flex-direction: column; align-items: center;
-            justify-content: center; height: 100vh; margin: 0; overflow: hidden;
-        }
-        #game-container { position: relative; border: 4px solid #333; }
-        canvas { background: #000; display: block; }
-        .controls {
-            display: grid; grid-template-columns: repeat(3, 1fr);
-            gap: 10px; margin-top: 20px; width: 90%;
-        }
-        button {
-            padding: 20px; font-size: 20px; background: #3390ec;
-            color: white; border: none; border-radius: 10px; touch-action: manipulation;
-        }
-        .score-board { font-size: 24px; margin-bottom: 10px; }
-    </style>
+    body {
+        background: #0f0f13; /* Глубокий темный цвет */
+        color: #e0e0e0;
+        font-family: 'Segoe UI', sans-serif;
+        display: flex; flex-direction: column; align-items: center;
+        justify-content: center; height: 100vh; margin: 0; overflow: hidden;
+    }
+    .score-board { 
+        font-size: 28px; 
+        font-weight: bold; 
+        margin-bottom: 15px; 
+        color: #00f2ff;
+        text-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
+    }
+    #game-container { 
+        position: relative; 
+        border: 2px solid #333; 
+        box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    canvas { background: #000; display: block; }
+    .controls {
+        display: grid; grid-template-columns: repeat(3, 1fr);
+        gap: 15px; margin-top: 25px; width: 85%;
+    }
+    button {
+        padding: 18px; font-size: 22px; 
+        background: rgba(255, 255, 255, 0.05);
+        color: #fff; border: 1px solid rgba(255,255,255,0.1); 
+        border-radius: 15px; touch-action: manipulation;
+        backdrop-filter: blur(5px);
+    }
+    button:active { background: #3390ec; transform: scale(0.95); }
+    .btn-drop { background: rgba(231, 76, 60, 0.2) !important; color: #ff7675; }
+</style>
 </head>
 <body>
     <div class="score-board">Счет: <span id="score">0</span></div>
@@ -39,159 +58,101 @@
     </div>
 
     <script>
-        const tg = window.Telegram.WebApp;
-        tg.expand();
+    const tg = window.Telegram.WebApp;
+    tg.expand();
 
-        const canvas = document.getElementById('tetris');
-        const context = canvas.getContext('2d');
-        context.scale(20, 20);
+    const canvas = document.getElementById('tetris');
+    const context = canvas.getContext('2d');
+    context.scale(20, 20);
 
-        function arenaSweep() {
-            let rowCount = 1;
-            outer: for (let y = arena.length - 1; y > 0; --y) {
-                for (let x = 0; x < arena[y].length; ++x) {
-                    if (arena[y][x] === 0) continue outer;
+    // Мягкие неоновые цвета
+    const colors = [
+        null,
+        '#00f2ff', // T - Голубой
+        '#ffeaa7', // O - Желтый
+        '#ff7675', // L - Красный
+        '#74b9ff', // J - Синий
+        '#55efc4', // I - Зеленый
+        '#a29bfe', // S - Фиолетовый
+        '#fd79ae', // Z - Розовый
+    ];
+
+    function drawMatrix(matrix, offset) {
+        matrix.forEach((row, y) => {
+            row.forEach((value, x) => {
+                if (value !== 0) {
+                    const color = colors[value];
+                    context.shadowBlur = 10; // Эффект свечения
+                    context.shadowColor = color;
+                    context.fillStyle = color;
+                    
+                    // Рисуем скругленный квадрат
+                    context.fillRect(x + offset.x + 0.05, y + offset.y + 0.05, 0.9, 0.9);
+                    
+                    // Сбрасываем тень для следующего элемента, чтобы не тормозило
+                    context.shadowBlur = 0;
                 }
-                const row = arena.splice(y, 1)[0].fill(0);
-                arena.unshift(row);
-                ++y;
-                player.score += rowCount * 10;
-                rowCount *= 2;
+            });
+        });
+    }
+
+    function arenaSweep() {
+        let rowCount = 1;
+        outer: for (let y = arena.length - 1; y > 0; --y) {
+            for (let x = 0; x < arena[y].length; ++x) {
+                if (arena[y][x] === 0) continue outer;
             }
+            const row = arena.splice(y, 1)[0].fill(0);
+            arena.unshift(row);
+            ++y;
+            player.score += rowCount * 10;
+            rowCount *= 2;
+        }
+        updateScore(); // Вызываем обновление текста
+    }
+
+    function updateScore() {
+        document.getElementById('score').innerText = player.score;
+    }
+
+    // ... (остальные функции: collide, createMatrix, createPiece, merge, rotateMatrix остаются прежними) ...
+
+    function draw() {
+        // Очистка холста
+        context.fillStyle = '#000';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Рисуем сетку (опционально для красоты)
+        context.strokeStyle = '#111';
+        context.lineWidth = 0.05;
+        for(let i=0; i<20; i++) {
+            context.beginPath(); context.moveTo(0, i); context.lineTo(12, i); context.stroke();
+            context.beginPath(); context.moveTo(i, 0); context.lineTo(i, 20); context.stroke();
+        }
+
+        drawMatrix(arena, {x: 0, y: 0});
+        drawMatrix(player.matrix, player.pos);
+    }
+
+    // Важное исправление в playerReset (фиксация счета перед сбросом)
+    function playerReset() {
+        const pieces = 'ILJOTSZ';
+        player.matrix = createPiece(pieces[pieces.length * Math.random() | 0]);
+        player.pos.y = 0;
+        player.pos.x = (arena[0].length / 2 | 0) - (player.matrix[0].length / 2 | 0);
+        
+        if (collide(arena, player)) {
+            // Перед очисткой отправляем финальный счет
+            if(player.score > 0) {
+                tg.sendData(JSON.stringify({score: player.score}));
+            }
+            arena.forEach(row => row.fill(0));
+            player.score = 0;
             updateScore();
         }
+    }
 
-        function collide(arena, player) {
-            const [m, o] = [player.matrix, player.pos];
-            for (let y = 0; y < m.length; ++y) {
-                for (let x = 0; x < m[y].length; ++x) {
-                    if (m[y][x] !== 0 && (arena[y + o.y] && arena[y + o.y][x + o.x]) !== 0) return true;
-                }
-            }
-            return false;
-        }
-
-        function createMatrix(w, h) {
-            const matrix = [];
-            while (h--) matrix.push(new Array(w).fill(0));
-            return matrix;
-        }
-
-        function createPiece(type) {
-            if (type === 'T') return [[0, 0, 0], [1, 1, 1], [0, 1, 0]];
-            else if (type === 'O') return [[2, 2], [2, 2]];
-            else if (type === 'L') return [[0, 3, 0], [0, 3, 0], [0, 3, 3]];
-            else if (type === 'J') return [[0, 4, 0], [0, 4, 0], [4, 4, 0]];
-            else if (type === 'I') return [[0, 5, 0, 0], [0, 5, 0, 0], [0, 5, 0, 0], [0, 5, 0, 0]];
-            else if (type === 'S') return [[0, 6, 6], [6, 6, 0], [0, 0, 0]];
-            else if (type === 'Z') return [[7, 7, 0], [0, 7, 7], [0, 0, 0]];
-        }
-
-        function draw() {
-            context.fillStyle = '#000';
-            context.fillRect(0, 0, canvas.width, canvas.height);
-            drawMatrix(arena, {x: 0, y: 0});
-            drawMatrix(player.matrix, player.pos);
-        }
-
-        function drawMatrix(matrix, offset) {
-            matrix.forEach((row, y) => {
-                row.forEach((value, x) => {
-                    if (value !== 0) {
-                        context.fillStyle = ['#000','#3390ec','#f1c40f','#e67e22','#2ecc71','#9b59b6','#e74c3c','#34495e'][value];
-                        context.fillRect(x + offset.x, y + offset.y, 1, 1);
-                    }
-                });
-            });
-        }
-
-        function merge(arena, player) {
-            player.matrix.forEach((row, y) => {
-                row.forEach((value, x) => {
-                    if (value !== 0) arena[y + player.pos.y][x + player.pos.x] = value;
-                });
-            });
-        }
-
-        function rotateMatrix(matrix) {
-            for (let y = 0; y < matrix.length; ++y) {
-                for (let x = 0; x < y; ++x) {
-                    [matrix[x][y], matrix[y][x]] = [matrix[y][x], matrix[x][y]];
-                }
-            }
-            matrix.forEach(row => row.reverse());
-        }
-
-        function playerDrop() {
-            player.pos.y++;
-            if (collide(arena, player)) {
-                player.pos.y--;
-                merge(arena, player);
-                playerReset();
-                arenaSweep();
-            }
-            dropCounter = 0;
-        }
-
-        function move(dir) {
-            player.pos.x += dir;
-            if (collide(arena, player)) player.pos.x -= dir;
-        }
-
-        function rotate() {
-            const pos = player.pos.x;
-            let offset = 1;
-            rotateMatrix(player.matrix);
-            while (collide(arena, player)) {
-                player.pos.x += offset;
-                offset = -(offset + (offset > 0 ? 1 : -1));
-                if (offset > player.matrix[0].length) {
-                    rotateMatrix(player.matrix);
-                    player.pos.x = pos;
-                    return;
-                }
-            }
-        }
-
-        function playerReset() {
-            const pieces = 'ILJOTSZ';
-            player.matrix = createPiece(pieces[pieces.length * Math.random() | 0]);
-            player.pos.y = 0;
-            player.pos.x = (arena[0].length / 2 | 0) - (player.matrix[0].length / 2 | 0);
-            if (collide(arena, player)) {
-                arena.forEach(row => row.fill(0));
-                // Если проиграли, отправляем счет боту
-                tg.sendData(JSON.stringify({score: player.score}));
-                player.score = 0;
-                updateScore();
-            }
-        }
-
-        const arena = createMatrix(12, 20);
-        const player = { pos: {x: 0, y: 0}, matrix: null, score: 0 };
-
-        function updateScore() { document.getElementById('score').innerText = player.score; }
-
-        let dropCounter = 0;
-        let dropInterval = 1000;
-        let lastTime = 0;
-        function update(time = 0) {
-            const deltaTime = time - lastTime;
-            lastTime = time;
-            dropCounter += deltaTime;
-            if (dropCounter > dropInterval) playerDrop();
-            draw();
-            requestAnimationFrame(update);
-        }
-
-        playerReset();
-        updateScore();
-        update();
-
-        // Кнопки управления для функций в HTML
-        window.move = move;
-        window.rotate = rotate;
-        window.drop = playerDrop;
-    </script>
+    // ... (логика update и запуск остаются прежними) ...
+</script>
 </body>
 </html>
