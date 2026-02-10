@@ -8,62 +8,40 @@
         body {
             background: #0f0f13; 
             color: #e0e0e0; 
-            font-family: 'Segoe UI', Roboto, sans-serif;
+            font-family: 'Segoe UI', sans-serif;
             display: flex; flex-direction: column; align-items: center;
             justify-content: center; height: 100vh; margin: 0; overflow: hidden;
         }
 
         .score-board { 
-            font-size: 32px; 
-            font-weight: bold; 
-            margin-bottom: 15px; 
-            color: #00f2ff; 
-            text-shadow: 0 0 15px rgba(0, 242, 255, 0.6); 
+            font-size: 32px; font-weight: bold; margin-bottom: 15px; 
+            color: #00f2ff; text-shadow: 0 0 15px rgba(0, 242, 255, 0.6); 
         }
         
         #game-container { 
-            position: relative; 
-            border: 2px solid #333; 
-            border-radius: 12px; 
-            overflow: hidden;
-            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+            position: relative; border: 2px solid #333; border-radius: 12px; 
+            overflow: hidden; box-shadow: 0 0 30px rgba(0,0,0,0.8);
             transition: transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
-        /* Анимация "встряски" при повороте */
-        .rotate-anim { transform: scale(1.03) rotate(1deg); }
+        .rotate-anim { transform: scale(1.05) rotate(2deg); }
 
         canvas { background: #000; display: block; }
 
         .controls {
-            display: grid; 
-            grid-template-columns: repeat(4, 1fr);
-            gap: 12px; 
-            margin-top: 25px; 
-            width: 90%;
+            display: grid; grid-template-columns: repeat(4, 1fr);
+            gap: 12px; margin-top: 25px; width: 90%;
         }
 
         button {
-            padding: 20px 5px; 
-            font-size: 24px; 
+            padding: 20px 5px; font-size: 24px; 
             background: rgba(255, 255, 255, 0.07);
-            color: #fff; 
-            border: 1px solid rgba(255,255,255,0.1); 
-            border-radius: 16px; 
-            touch-action: manipulation;
-            transition: all 0.1s;
+            color: #fff; border: 1px solid rgba(255,255,255,0.1); 
+            border-radius: 16px; touch-action: manipulation;
         }
 
-        button:active { 
-            background: #3390ec; 
-            transform: scale(0.9); 
-        }
-
-        .btn-hard-drop { 
-            background: rgba(241, 196, 15, 0.15) !important; 
-            color: #f1c40f; 
-            border-color: rgba(241, 196, 15, 0.3);
-        }
+        button:active { background: #3390ec; transform: scale(0.9); }
+        .btn-hard-drop { background: rgba(241, 196, 15, 0.2) !important; color: #f1c40f; }
     </style>
 </head>
 <body>
@@ -108,25 +86,23 @@
         }
 
         function createPiece(type) {
-            if (type === 'T') return [[0, 0, 0], [1, 1, 1], [0, 1, 0]];
-            if (type === 'O') return [[2, 2], [2, 2]];
-            if (type === 'L') return [[0, 3, 0], [0, 3, 0], [0, 3, 3]];
-            if (type === 'J') return [[0, 4, 0], [0, 4, 0], [4, 4, 0]];
-            if (type === 'I') return [[0, 5, 0, 0], [0, 5, 0, 0], [0, 5, 0, 0], [0, 5, 0, 0]];
+            if (type === 'I') return [[0, 1, 0, 0], [0, 1, 0, 0], [0, 1, 0, 0], [0, 1, 0, 0]];
+            if (type === 'L') return [[0, 2, 0], [0, 2, 0], [0, 2, 2]];
+            if (type === 'J') return [[0, 3, 0], [0, 3, 0], [3, 3, 0]];
+            if (type === 'O') return [[4, 4], [4, 4]];
+            if (type === 'Z') return [[5, 5, 0], [0, 5, 5], [0, 0, 0]];
             if (type === 'S') return [[0, 6, 6], [6, 6, 0], [0, 0, 0]];
-            if (type === 'Z') return [[7, 7, 0], [0, 7, 7], [0, 0, 0]];
+            if (type === 'T') return [[0, 7, 0], [7, 7, 7], [0, 0, 0]];
         }
 
         function drawMatrix(matrix, offset) {
             matrix.forEach((row, y) => {
                 row.forEach((value, x) => {
                     if (value !== 0) {
-                        const color = colors[value];
-                        context.shadowBlur = 12;
-                        context.shadowColor = color;
-                        context.fillStyle = color;
-                        // Рисуем блок чуть меньше сетки для разделения
-                        context.fillRect(x + offset.x + 0.05, y + offset.y + 0.05, 0.9, 0.9);
+                        context.shadowBlur = 10;
+                        context.shadowColor = colors[value];
+                        context.fillStyle = colors[value];
+                        context.fillRect(x + offset.x, y + offset.y, 1, 1);
                         context.shadowBlur = 0;
                     }
                 });
@@ -136,14 +112,6 @@
         function draw() {
             context.fillStyle = '#000';
             context.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Сетка
-            context.strokeStyle = '#111';
-            context.lineWidth = 0.05;
-            for(let i=0; i<12; i++) {
-                context.beginPath(); context.moveTo(i, 0); context.lineTo(i, 20); context.stroke();
-            }
-
             drawMatrix(arena, {x: 0, y: 0});
             drawMatrix(player.matrix, player.pos);
         }
@@ -213,7 +181,6 @@
                     return;
                 }
             }
-            // Эффект поворота
             container.classList.add('rotate-anim');
             setTimeout(() => container.classList.remove('rotate-anim'), 100);
             if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
@@ -231,10 +198,8 @@
         }
 
         function hardDrop() {
-            let points = 0;
             while (!collide(arena, player)) {
                 player.pos.y++;
-                points++;
             }
             player.pos.y--;
             merge(arena, player);
@@ -272,14 +237,13 @@
             requestAnimationFrame(update);
         }
 
-        playerReset();
-        updateScore();
-        update();
-
-        // Прокидываем функции в глобальную область для кнопок HTML
         window.move = move;
         window.rotate = rotate;
         window.hardDrop = hardDrop;
+
+        playerReset();
+        updateScore();
+        update();
     </script>
 </body>
 </html>
